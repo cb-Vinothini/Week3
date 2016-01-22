@@ -1,4 +1,4 @@
-DROP DATABASE `service_stations`;
+DROP DATABASE IF EXISTS `service_stations`;
 CREATE DATABASE IF NOT EXISTS `service_stations`;
 USE `service_stations`;
 
@@ -34,7 +34,7 @@ CREATE TABLE `customers`(
 DROP TABLE IF EXISTS `vehicles`;
 CREATE TABLE `vehicles`(
   `id` INT UNSIGNED NOT NULL,
-  `type` VARCHAR(4) NOT NULL CHECK (`type` in ('Bike', 'Car', 'Bus')),
+  `type` ENUM ('Bike', 'Car', 'Bus'),
   `brand` VARCHAR(10) NOT NULL,
   `color` VARCHAR(10) NOT NULL,
   `service_charge` INT NOT NULL,
