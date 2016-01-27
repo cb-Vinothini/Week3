@@ -63,11 +63,11 @@
 -- AND `annual` > 90;
 --
 -- -- 12
--- SELECT `student_id`,`subject_id`,(COALESCE(`quarterly`, 0)+COALESCE(`half_yearly`, 0)+COALESCE(`annual`, 0))/3 AS `average`, `year`
+-- SELECT `student_id`,`subject_id`,(IFNULL(`quarterly`, 0)+IFNULL(`half_yearly`, 0)+IFNULL(`annual`, 0))/3 AS `average`, `year`
 -- FROM MARKS;
 --
 -- -- 13
--- SELECT `student_id`,`subject_id`,(COALESCE(`quarterly`, 0)+COALESCE(`half_yearly`, 0)+COALESCE(`annual`, 0))/3 AS `average`, `year`
+-- SELECT `student_id`,`subject_id`,(IFNULL(`quarterly`, 0)+IFNULL(`half_yearly`, 0)+IFNULL(`annual`, 0))/3 AS `average`, `year`
 -- FROM MARKS
 -- WHERE `year` IN (2003, 2004);
 --
@@ -86,14 +86,14 @@
 -- WHERE m.quarterly IS NULL AND m.half_yearly IS NULL AND m.annual IS NULL;
 --
 -- -- 2
--- SELECT s.name, sum(COALESCE(m.annual,0)) AS `marks`, m.year
+-- SELECT s.name, sum(IFNULL(m.annual,0)) AS `marks`, m.year
 -- FROM `marks` m
 -- INNER JOIN `students` s
 -- ON m.student_id = s.id
 -- GROUP BY m.student_id, m.year;
 --
 -- -- 3
--- SELECT s.name, SUM(COALESCE(m.quarterly, 0)), m.grade
+-- SELECT s.name, SUM(IFNULL(m.quarterly, 0)), m.grade
 -- FROM `marks` m
 -- INNER JOIN `students` s
 -- ON m.student_id = s.id
