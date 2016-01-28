@@ -103,18 +103,13 @@ DECLARE `y` INT(11) DEFAULT 0;
 DECLARE `per` FLOAT(10) DEFAULT 0.0;
 DECLARE `no` INT(10) DEFAULT 1;
 DECLARE `finished` INTEGER DEFAULT 0;
-DECLARE `value_cursor` CURSOR FOR SELECT s.id, s.name, new_table.count_medal, new_table.a_percent, new_table.year
-FROM service_stations.students s
-INNER JOIN (SELECT table1.student_id, table1.year, table1.grade, table1.q_percent, table1.h_percent, table1.a_percent, table2.count_medal
-            FROM (SELECT student_id, year, grade, SUM(COALESCE(quarterly,0))/5 AS `q_percent`, SUM(COALESCE(half_yearly,0))/5 AS `h_percent`, SUM(COALESCE(annual,0))/5 AS `a_percent`
-                  FROM service_stations.marks
-                  GROUP BY student_id, year, grade) AS `table1`
-            LEFT JOIN (SELECT student_id, year, COUNT(medal_won) AS `count_medal`
-                        FROM service_stations.medals
-                        GROUP BY student_id, year) AS `table2`
-            ON table1.student_id = table2.student_id
-            AND table1.year = table2.year) AS `new_table`
-ON s.id = new_table.student_id;
+DECLARE `value_cursor` CURSOR FOR SELECT s.id, s.name, m.year, AVG(IFNULL(m.annual, 0)) AS `a_percent`, IFNULL(temp.count_medal, 0) as `count_medal`
+FROM service_stations.marks m
+LEFT JOIN (SELECT student_id, year, COUNT(medal_won) AS `count_medal`
+          FROM service_stations.medals
+          GROUP BY student_id, year) temp ON m.student_id = temp.student_id AND (temp.year = m.year OR temp.year IS NULL)
+INNER JOIN service_stations.students s ON s.id = m.student_id
+GROUP BY s.id, m.year, temp.count_medal;
 DECLARE CONTINUE HANDLER FOR NOT FOUND SET `finished` = 1;
 
 OPEN `value_cursor`;

@@ -32,8 +32,8 @@
 -->
 
 <project name="JDBC Tutorial" default="all" basedir=".">
-  <property name="ANTPROPERTIES" value="properties/javadb-build-properties.xml"/>
-  <!-- <property name="ANTPROPERTIES" value="properties/mysql-build-properties.xml"/> -->
+<!--  <property name="ANTPROPERTIES" value="properties/javadb-build-properties.xml"/>-->
+   <property name="ANTPROPERTIES" value="properties/mysql-build-properties.xml"/>
   <import file="${ANTPROPERTIES}"/>
 
 
