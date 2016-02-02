@@ -19,9 +19,7 @@ public class PhoneDirectory{
     private static final String HOME_PH = "home";
     private static final String WORK_PH = "work";
     
-    private static final String dataBaseName = "phone_db";
-    private static final String tableName = "contacts";
-    
+    public static Scanner scanner = new Scanner(System.in);
     public static Contact[] setData(String fileName) throws IOException{
 
         FileReader fileReader = null;
@@ -35,12 +33,10 @@ public class PhoneDirectory{
             List<CSVRecord> csvRecords = csvFileParser.getRecords();
             for (int i = 1; i < csvRecords.size(); i++) {
                 CSVRecord record = csvRecords.get(i);
-
-                List<String> phoneNos = new ArrayList<String>();
-                phoneNos.add(record.get(MOBILE_PH));
-                phoneNos.add(record.get(HOME_PH));
-                phoneNos.add(record.get(WORK_PH));
-                Contact contact = new Contact(record.get(NAME), record.get(ADDRESS), phoneNos);
+                String mobile = record.get(MOBILE_PH);
+                String home = record.get(HOME_PH);
+                String work = record.get(WORK_PH);
+                Contact contact = new Contact(record.get(NAME), record.get(ADDRESS), mobile, home, work);
                 contacts.add(contact);
             }
         }
@@ -59,16 +55,12 @@ public class PhoneDirectory{
     public static void main(String[] args){
         JDBCfile jdbc = new JDBCfile();
         Connection conn = null;
-        Statement stmt = null;
         String fileName = "phoneData.csv";
-        Scanner scanner = new Scanner(System.in);
         Contact[] contact = null;
         try{
             contact = setData(fileName);
             conn = jdbc.getConnectionToDatabase();
-            jdbc.createDatabase(conn, dataBaseName);
-            jdbc.createTable(conn, tableName);
-            jdbc.insertValues(conn, contact, tableName);
+            jdbc.insertValues(conn, contact);
             char choice;
             do{
                 System.out.print("Enter 1. Retrieve by name \n2. Partial retrieve by name\n3. Retrieve by phoneNos\n4. Add Details\n5. Update Details : ");
@@ -78,52 +70,28 @@ public class PhoneDirectory{
                     case 1:
                         System.out.print("Enter the name : ");
                         var = scanner.next();
-                        jdbc.selectByName(conn, var, tableName);
+                        jdbc.selectByName(conn, var);
                         break;
                     case 2:
                         System.out.print("Enter the pattern : ");
                         var = scanner.next();
-                        jdbc.selectByNamePattern(conn, var, tableName);
+                        jdbc.selectByNamePattern(conn, var);
                         break;
                     case 3:
                         System.out.print("Enter the phone no : ");
                         var = scanner.next();
-                        jdbc.selectByPhoneNo(conn, var, tableName);
+                        jdbc.selectByPhoneNo(conn, var);
                         break;
                     case 4:
-                        System.out.print("Enter the Contact details name : ");
-                        String name = scanner.next();
-                        System.out.print("Address : ");
-                        String address = scanner.next();
-                        List<String> phoneNos = new ArrayList<String>();
-                        System.out.print("Mobile : ");
-                        phoneNos.add(scanner.next());
-                        System.out.print("Home : ");
-                        phoneNos.add(scanner.next());
-                        System.out.print("Work : ");
-                        phoneNos.add(scanner.next());
-                        Contact newContact = new Contact(name, address, phoneNos);
-                        jdbc.addRow(conn, newContact, tableName);
+                        Contact newContact = getDetails();
+                        jdbc.addRow(conn, newContact);
                         break;
                     case 5:
-                        jdbc.displayTable(conn, tableName);
-                        System.out.print("Enter old contact details name : ");
-                        String oldName = scanner.next();
-                        System.out.print("Address : ");
-                        String oldAddress = scanner.next();
-                        System.out.print("Enter new contact details name : ");
-                        String newName = scanner.next();
-                        System.out.print("Address : ");
-                        String newAddress = scanner.next();
-                        List<String> newPhoneNos = new ArrayList<String>();
-                        System.out.print("Mobile : ");
-                        newPhoneNos.add(scanner.next());
-                        System.out.print("Home : ");
-                        newPhoneNos.add(scanner.next());
-                        System.out.print("Work : ");
-                        newPhoneNos.add(scanner.next());
-                        Contact updateContact = new Contact(newName, newAddress, newPhoneNos);
-                        jdbc.updateRow(conn, oldName, oldAddress, updateContact, tableName);
+                        jdbc.displayTable(conn);
+                        System.out.print("Enter old contact id : ");
+                        Integer id = scanner.nextInt();
+                        Contact updateContact = getDetails();
+                        jdbc.updateRow(conn, id, updateContact);
                         break;
                     default:
                         System.out.println("Wrong choice");
@@ -140,14 +108,36 @@ public class PhoneDirectory{
             jdbc.closeConnection(conn);
         }
     }
+    
+    public static Contact getDetails(){
+        System.out.print("Enter the Contact details name : ");
+        String name = scanner.next();
+        System.out.print("Address : ");
+        String address = scanner.next();
+        System.out.print("Mobile : ");
+        String mobile = scanner.next();
+        System.out.print("Home : ");
+        String home = scanner.next();
+        System.out.print("Work : ");
+        String work = scanner.next();
+        Contact newContact = new Contact(name, address, mobile, home, work);
+        return newContact;
+    }
 }
 
 class JDBCfile {
     static final String JDBC_DRIVER = "com.mysql.jdbc.Driver";
-    static final String DB_URL = "jdbc:mysql://localhost/";
+    static final String DB_URL = "jdbc:mysql://localhost/phone_db";
     
     static final String USER = "root";
     static final String PASS = "";
+    
+    String selectAll = "SELECT id, name, address, mobile, home, work FROM contacts";
+    String selectByName = "SELECT id, name, address, mobile, home, work FROM contacts WHERE name = ?";
+    String selectByPattern = "SELECT id, name, address, mobile, home, work FROM contacts WHERE name LIKE CONCAT('%',?,'%') ";
+    String selectByNumber = "SELECT id, name, address, mobile, home, work FROM contacts WHERE mobile = ? OR home = ? OR work = ?";
+    String insertStat = "INSERT INTO contacts(name, address, mobile, home, work) VALUES (?, ?, ?, ?, ?)";
+    String updateRow = "UPDATE contacts SET name = ? ,address = ?, mobile = ?, home = ?, work = ? WHERE id = ?";
     
     public Connection getConnectionToDatabase() throws SQLException, Exception{
         Connection conn = null;
@@ -170,7 +160,6 @@ class JDBCfile {
     }
     
     public void closeStatement(Statement stmt) {
-        System.out.println("Releasing all open resources ...");
         try {
             if (stmt != null) {
                 stmt.close();
@@ -180,141 +169,110 @@ class JDBCfile {
         }
     }
     
-    public void displayTable(Connection connArg, String tableName) throws SQLException{
-        Statement s = connArg.createStatement();
-        String selectAll = "SELECT * FROM " + tableName;
-        ResultSet rs = s.executeQuery(selectAll);
-        while(rs.next()){
-            String name = rs.getString("name");
-            String address = rs.getString("address");
-            int mobile  = rs.getInt("mobile");
-            int home = rs.getInt("home");
-            int work = rs.getInt("work");
-            
-            String output = String.format("Name : %s, address : %s, mobile : %d, home : %d, work : %d",name, address, mobile, home, work);
-            System.out.println(output);
+    public void closePreparedStatement(PreparedStatement preStmt) {
+        try {
+            if (preStmt != null) {
+                preStmt.close();
+            }
+        } catch (SQLException sqle) {
+            sqle.printStackTrace();
         }
-        closeStatement(s);
     }
     
-    public void createDatabase(Connection connArg, String dbName) throws SQLException {
-        Statement s = connArg.createStatement();
-        s.executeUpdate("DROP DATABASE IF EXISTS "+ dbName);
-        String newDatabaseString = "CREATE DATABASE IF NOT EXISTS " + dbName;
-        s.executeUpdate(newDatabaseString);
-        System.out.println("Created database " + dbName);
-        s.executeQuery("USE "+dbName);
-        closeStatement(s);
+    public void displayTable(Connection connArg) throws SQLException{
+        PreparedStatement select = connArg.prepareStatement(selectAll);
+        ResultSet rs = select.executeQuery();
+        displayResultSet(rs);
+        closePreparedStatement(select);
     }
     
-    public void createTable(Connection connArg, String tableName) throws SQLException {
-        Statement s = connArg.createStatement();
-        s.executeUpdate("DROP TABLE IF EXISTS "+ tableName);
-        String newTableString = "CREATE TABLE IF NOT EXISTS " + tableName + "(name VARCHAR(50) NOT NULL, address VARCHAR(100) NOT NULL,mobile INT(10), home INT(10), work INT(10), CONSTRAINT ck_name_address PRIMARY KEY(name, address))";
-        s.executeUpdate(newTableString);
-        System.out.println("Created table " + tableName);
-        closeStatement(s);
-    }
-    
-    public void insertValues(Connection conn, Contact[] contacts, String tableName) throws SQLException{
-        Statement s = conn.createStatement();
+    public void insertValues(Connection conn, Contact[] contacts) throws SQLException{
+        PreparedStatement insert = conn.prepareStatement(insertStat);
         for(Contact contact: contacts){
-            String insert = "INSERT INTO "+tableName+" VALUES (" + contact.toString() + ")";
-            System.out.println(insert);
-            s.executeUpdate(insert);
+            insert.setString(1, contact.getName());
+            insert.setString(2, contact.getAddress());
+            insert.setString(3, contact.getMobile());
+            insert.setString(4, contact.getHome());
+            insert.setString(5, contact.getWork());
+            insert.addBatch();
         }
-        closeStatement(s);
+        insert.executeBatch();
+        closePreparedStatement(insert);
     }
     
-    public void selectByName(Connection conn, String name, String tableName)throws SQLException{
-        Statement s = conn.createStatement();
-        String select = "SELECT name, address, mobile, home, work FROM " + tableName + " WHERE name = \"" + name + "\"";
-        ResultSet rs = s.executeQuery(select);
-        while(rs.next()){
-            String address = rs.getString("address");
-            int mobile  = rs.getInt("mobile");
-            int home = rs.getInt("home");
-            int work = rs.getInt("work");
-            
-            String output = String.format("Name : %s, address : %s, mobile : %d, home : %d, work : %d",name, address, mobile, home, work);
-            System.out.println(output);
-        }
-        closeStatement(s);
+    public void selectByName(Connection conn, String name)throws SQLException{
+        PreparedStatement selectRow = conn.prepareStatement(selectByName);
+        selectRow.setString(1, name);
+        ResultSet rs = selectRow.executeQuery();
+        displayResultSet(rs);
+        closePreparedStatement(selectRow);
     }
 
-    public void selectByNamePattern(Connection conn, String pattern, String tableName)throws SQLException{
-        Statement s = conn.createStatement();
-        String select = "SELECT name, address, mobile, home, work FROM " + tableName + " WHERE name LIKE \"%" + pattern + "%\"";
-        System.out.println(select);
-        ResultSet rs = s.executeQuery(select);
-        while(rs.next()){
-            String name = rs.getString("name");
-            String address = rs.getString("address");
-            int mobile  = rs.getInt("mobile");
-            int home = rs.getInt("home");
-            int work = rs.getInt("work");
-            
-            String output = String.format("Name : %s, address : %s, mobile : %d, home : %d, work : %d",name, address, mobile, home, work);
-            System.out.println(output);
-        }
-        closeStatement(s);
+    public void selectByNamePattern(Connection conn, String pattern)throws SQLException{
+        PreparedStatement selectRow = conn.prepareStatement(selectByPattern);
+        selectRow.setString(1, pattern);
+        ResultSet rs = selectRow.executeQuery();
+        displayResultSet(rs);
+        closePreparedStatement(selectRow);
     }
 
-    public void selectByPhoneNo(Connection conn, String number, String tableName)throws SQLException{
-        Statement s = conn.createStatement();
-        String select = "SELECT name, address, mobile, home, work FROM " + tableName + " WHERE mobile = \"" + number + "\" OR home = \"" + number +"\" OR work = \"" + number +"\"";
-        ResultSet rs = s.executeQuery(select);
+    public void selectByPhoneNo(Connection conn, String number)throws SQLException{
+        PreparedStatement selectRow = conn.prepareStatement(selectByNumber);
+        selectRow.setString(1, number);
+        selectRow.setString(2, number);
+        selectRow.setString(3, number);
+        ResultSet rs = selectRow.executeQuery();
+        displayResultSet(rs);
+        closePreparedStatement(selectRow);
+    }
+    
+    public void addRow(Connection conn, Contact contact) throws SQLException{
+        PreparedStatement insert = conn.prepareStatement(insertStat);
+        insert.setString(1, contact.getName());
+        insert.setString(2, contact.getAddress());
+        insert.setString(3, contact.getMobile());
+        insert.setString(4, contact.getHome());
+        insert.setString(5, contact.getWork());
+        insert.executeUpdate();
+        closePreparedStatement(insert);
+    }
+    
+    public void updateRow(Connection conn, Integer id, Contact contact) throws SQLException{
+        PreparedStatement update = conn.prepareStatement(updateRow);
+        update.setString(1, contact.getName());
+        update.setString(2, contact.getAddress());
+        update.setString(3, contact.getMobile());
+        update.setString(4, contact.getHome());
+        update.setString(5, contact.getWork());
+        update.setInt(6, id);
+        update.executeUpdate();
+        closePreparedStatement(update);
+    }
+    
+    public void displayResultSet(ResultSet rs) throws SQLException{
         while(rs.next()){
+            int id = rs.getInt("id");
             String name = rs.getString("name");
             String address = rs.getString("address");
-            int mobile  = rs.getInt("mobile");
-            int home = rs.getInt("home");
-            int work = rs.getInt("work");
+            String mobile  = rs.getString("mobile");
+            String home = rs.getString("home");
+            String work = rs.getString("work");
             
-            String output = String.format("Name : %s, address : %s, mobile : %d, home : %d, work : %d",name, address, mobile, home, work);
+            String output = String.format("ID = %d Name : %s, address : %s, mobile : %s, home : %s, work : %s", id,name, address, mobile, home, work);
             System.out.println(output);
         }
-        closeStatement(s);
     }
-    
-    public void addRow(Connection conn, Contact contact, String tableName) throws SQLException{
-        Statement s = conn.createStatement();
-        String insert = "INSERT INTO "+tableName+" VALUES (" + contact.toString() + ")";
-        s.executeUpdate(insert);
-        closeStatement(s);
-    }
-    
-    public void updateRow(Connection conn, String oldName, String oldAddress, Contact contact, String tableName) throws SQLException{
-        Statement s = conn.createStatement();
-        String insert = "UPDATE " + tableName + " SET name = \"" + contact.getName() + "\" ,address = \"" + contact.getAddress();
-        List<String> nums = contact.getPhoneNos();
-        insert = insert.concat("\" , mobile = " + nums.get(0));
-        insert = insert.concat(", home = " + nums.get(1));
-        insert = insert.concat(", work = " + nums.get(2) + " WHERE name = \""+ oldName + "\" AND address = \""+ oldAddress+"\"");
-        System.out.println(insert);
-        s.executeUpdate(insert);
-        closeStatement(s);
-    }
-    
 }
 
 class Contact{
-    private String name, address;
-    private List<String> phoneNos = new ArrayList<String>();
+    private String name, address, mobile, home, work;;
     
-    @Override
-    public String toString(){
-        String output = String.format("\"%s\", \"%s\" ",getName(), getAddress());
-        for(String no : getPhoneNos()){
-            output = output.concat(", " + no);
-        }
-        return output;
-    }
-    
-    Contact(String name, String address, List<String> phoneNos){
+    Contact(String name, String address, String mobile, String home, String work){
         this.name = name;
         this.address = address;
-        this.phoneNos = phoneNos;
+        this.mobile = mobile;
+        this.home = home;
+        this.work = work;
     }
     
     public String getName(){
@@ -325,8 +283,16 @@ class Contact{
         return address;
     }
     
-    public List<String> getPhoneNos(){
-        return phoneNos;
+    public String getMobile(){
+        return mobile;
     }
-    
+
+    public String getHome(){
+        return home;
+    }
+
+    public String getWork(){
+        return work;
+    }
+
 }
