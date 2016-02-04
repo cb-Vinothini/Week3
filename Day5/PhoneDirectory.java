@@ -10,6 +10,9 @@ import org.apache.commons.csv.CSVFormat;
 import java.io.*;
 import java.sql.*;
 
+import javax.sql.DataSource;
+import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
+
 public class PhoneDirectory{
     private static final String [] FILE_HEADER_MAPPING = {"name","address","mobile","home","work"};
 
@@ -54,13 +57,13 @@ public class PhoneDirectory{
     
     public static void main(String[] args){
         JDBCfile jdbc = new JDBCfile();
-        Connection conn = null;
+        DataSource ds = null;
         String fileName = "phoneData.csv";
         Contact[] contact = null;
         try{
             contact = setData(fileName);
-            conn = jdbc.getConnectionToDatabase();
-            jdbc.insertValues(conn, contact);
+            ds = jdbc.getDataSource();
+            jdbc.insertValues(ds, contact);
             char choice;
             do{
                 System.out.print("Enter 1. Retrieve by name \n2. Partial retrieve by name\n3. Retrieve by phoneNos\n4. Add Details\n5. Update Details : ");
@@ -70,28 +73,28 @@ public class PhoneDirectory{
                     case 1:
                         System.out.print("Enter the name : ");
                         var = scanner.next();
-                        jdbc.selectByName(conn, var);
+                        jdbc.selectByName(ds, var);
                         break;
                     case 2:
                         System.out.print("Enter the pattern : ");
                         var = scanner.next();
-                        jdbc.selectByNamePattern(conn, var);
+                        jdbc.selectByNamePattern(ds, var);
                         break;
                     case 3:
                         System.out.print("Enter the phone no : ");
                         var = scanner.next();
-                        jdbc.selectByPhoneNo(conn, var);
+                        jdbc.selectByPhoneNo(ds, var);
                         break;
                     case 4:
                         Contact newContact = getDetails();
-                        jdbc.addRow(conn, newContact);
+                        jdbc.addRow(ds, newContact);
                         break;
                     case 5:
-                        jdbc.displayTable(conn);
+                        jdbc.displayTable(ds);
                         System.out.print("Enter old contact id : ");
                         Integer id = scanner.nextInt();
                         Contact updateContact = getDetails();
-                        jdbc.updateRow(conn, id, updateContact);
+                        jdbc.updateRow(ds, id, updateContact);
                         break;
                     default:
                         System.out.println("Wrong choice");
@@ -104,8 +107,6 @@ public class PhoneDirectory{
             sqle.printStackTrace();
         }catch(Exception e){
             System.out.println(e);
-        }finally{
-            jdbc.closeConnection(conn);
         }
     }
     
@@ -134,20 +135,20 @@ class JDBCfile {
     
     String selectAll = "SELECT id, name, address, mobile, home, work FROM contacts";
     String selectByName = "SELECT id, name, address, mobile, home, work FROM contacts WHERE name = ?";
-    String selectByPattern = "SELECT id, name, address, mobile, home, work FROM contacts WHERE name LIKE CONCAT('%',?,'%') ";
+    String selectByPattern = "SELECT id, name, address, mobile, home, work FROM contacts WHERE name LIKE CONCAT('%', ?, '%')";
     String selectByNumber = "SELECT id, name, address, mobile, home, work FROM contacts WHERE mobile = ? OR home = ? OR work = ?";
     String insertStat = "INSERT INTO contacts(name, address, mobile, home, work) VALUES (?, ?, ?, ?, ?)";
     String updateRow = "UPDATE contacts SET name = ? ,address = ?, mobile = ?, home = ?, work = ? WHERE id = ?";
     
-    public Connection getConnectionToDatabase() throws SQLException, Exception{
-        Connection conn = null;
-        Class.forName(JDBC_DRIVER);
-        System.out.println("Connecting to database...");
-        conn = DriverManager.getConnection(DB_URL,USER,PASS);
-        System.out.println("Connected to database");
-        return conn;
+    public DataSource getDataSource() throws SQLException, Exception{
+        MysqlDataSource mysqlDS = null;
+        mysqlDS = new MysqlDataSource();
+        mysqlDS.setURL(DB_URL);
+        mysqlDS.setUser(USER);
+        mysqlDS.setPassword(PASS);
+        return mysqlDS;
     }
-    
+
     public void closeConnection(Connection conn) {
         System.out.println("Releasing all open resources ...");
         try {
@@ -179,14 +180,17 @@ class JDBCfile {
         }
     }
     
-    public void displayTable(Connection connArg) throws SQLException{
-        PreparedStatement select = connArg.prepareStatement(selectAll);
+    public void displayTable(DataSource ds) throws SQLException{
+        Connection conn = ds.getConnection();
+        PreparedStatement select = conn.prepareStatement(selectAll);
         ResultSet rs = select.executeQuery();
         displayResultSet(rs);
         closePreparedStatement(select);
+        closeConnection(conn);
     }
     
-    public void insertValues(Connection conn, Contact[] contacts) throws SQLException{
+    public void insertValues(DataSource ds, Contact[] contacts) throws SQLException{
+        Connection conn = ds.getConnection();
         PreparedStatement insert = conn.prepareStatement(insertStat);
         for(Contact contact: contacts){
             insert.setString(1, contact.getName());
@@ -198,25 +202,32 @@ class JDBCfile {
         }
         insert.executeBatch();
         closePreparedStatement(insert);
+        closeConnection(conn);
     }
     
-    public void selectByName(Connection conn, String name)throws SQLException{
+    public void selectByName(DataSource ds, String name)throws SQLException{
+        Connection conn = ds.getConnection();
         PreparedStatement selectRow = conn.prepareStatement(selectByName);
         selectRow.setString(1, name);
         ResultSet rs = selectRow.executeQuery();
         displayResultSet(rs);
         closePreparedStatement(selectRow);
+        closeConnection(conn);
     }
 
-    public void selectByNamePattern(Connection conn, String pattern)throws SQLException{
+    public void selectByNamePattern(DataSource ds, String pattern)throws SQLException{
+        Connection conn = ds.getConnection();
         PreparedStatement selectRow = conn.prepareStatement(selectByPattern);
         selectRow.setString(1, pattern);
+        System.out.println(selectRow.toString());
         ResultSet rs = selectRow.executeQuery();
         displayResultSet(rs);
         closePreparedStatement(selectRow);
+        closeConnection(conn);
     }
 
-    public void selectByPhoneNo(Connection conn, String number)throws SQLException{
+    public void selectByPhoneNo(DataSource ds, String number)throws SQLException{
+        Connection conn = ds.getConnection();
         PreparedStatement selectRow = conn.prepareStatement(selectByNumber);
         selectRow.setString(1, number);
         selectRow.setString(2, number);
@@ -224,9 +235,11 @@ class JDBCfile {
         ResultSet rs = selectRow.executeQuery();
         displayResultSet(rs);
         closePreparedStatement(selectRow);
+        closeConnection(conn);
     }
     
-    public void addRow(Connection conn, Contact contact) throws SQLException{
+    public void addRow(DataSource ds, Contact contact) throws SQLException{
+        Connection conn = ds.getConnection();
         PreparedStatement insert = conn.prepareStatement(insertStat);
         insert.setString(1, contact.getName());
         insert.setString(2, contact.getAddress());
@@ -235,9 +248,11 @@ class JDBCfile {
         insert.setString(5, contact.getWork());
         insert.executeUpdate();
         closePreparedStatement(insert);
+        closeConnection(conn);
     }
     
-    public void updateRow(Connection conn, Integer id, Contact contact) throws SQLException{
+    public void updateRow(DataSource ds, Integer id, Contact contact) throws SQLException{
+        Connection conn = ds.getConnection();
         PreparedStatement update = conn.prepareStatement(updateRow);
         update.setString(1, contact.getName());
         update.setString(2, contact.getAddress());
@@ -247,6 +262,7 @@ class JDBCfile {
         update.setInt(6, id);
         update.executeUpdate();
         closePreparedStatement(update);
+        closeConnection(conn);
     }
     
     public void displayResultSet(ResultSet rs) throws SQLException{

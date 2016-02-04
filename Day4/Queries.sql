@@ -110,13 +110,13 @@ SET avg_all = 0;
 -- IF NOT EXISTS (SELECT NULL FROM INFORMATION_SCHEMA.COLUMNS
 --             WHERE TABLE_SCHEMA = 'service_stations' AND TABLE_NAME = 'medals' AND COLUMN_NAME = 'medal_won') THEN
 -- END IF;
-
-ALTER TABLE `medals`
-CHANGE COLUMN `medal_won` `medal_received` VARCHAR(10);
-
-ALTER TABLE `medals`
-CHANGE COLUMN `medal_received` `medal_won` VARCHAR(10);
-
+--
+-- ALTER TABLE `medals`
+-- CHANGE COLUMN `medal_won` `medal_received` VARCHAR(10);
+--
+-- ALTER TABLE `medals`
+-- CHANGE COLUMN `medal_received` `medal_won` VARCHAR(10);
+--
 -- # a
 ALTER TABLE `medals`
 DROP COLUMN `medal_received`;
